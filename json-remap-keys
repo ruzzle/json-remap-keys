@@ -1,0 +1,38 @@
+#!/bin/bash
+
+read -r -d '' JQ_COMMAND <<'END'
+    . as $obj |
+    reduce ($mapping | to_entries | .[]) as $m (
+        . as $obj | $obj;
+        ($m.key | split (".")) as $from |
+        ($m.value | split (".")) as $to |
+        try
+            # Retrieving path may throw an index error
+            # For example, when a="1" when path is a.b
+            getpath($from) as $val |
+            if $val != null then
+                # Copy value to new path
+                setpath($to; $val) |
+                # Remove original path
+                delpaths([$from]) |
+                # Check if parent objects are empty and, if so,
+                # incrementally delete these as well
+                reduce ([range( 1; $from | length)] | reverse | .[]) as $idx (
+                    . ;
+                    if getpath($from[:$idx]) == {} then
+                        delpaths([$from[:$idx]])
+                    end
+                )
+            else
+                .
+            end
+        catch $obj
+    )
+END
+
+jq -c \
+    --argjson mapping "$(
+        (echo -n '{';  sed -e 's/^/"/g' -e 's/$/",/g' -e 's/:/":"/g' $1  | tr -d $'\n' | head -c -1; echo -n '}')
+    )" \
+    "$JQ_COMMAND" \
+    "$2"
