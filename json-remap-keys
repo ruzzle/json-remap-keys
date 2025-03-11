@@ -35,4 +35,4 @@ jq -c \
         (echo -n '{';  sed -e 's/^/"/g' -e 's/$/",/g' -e 's/:/":"/g' $1  | tr -d $'\n' | head -c -1; echo -n '}')
     )" \
     "$JQ_COMMAND" \
-    "$2"
+    $2
